@@ -43,12 +43,12 @@ jobs:
       - name: Restore dependencies
         run: |
           cd "Vehiculo.API"
+          dotnet restore "API/API.csproj" --source "https://api.nuget.org/v3/index.json" --source "../Paquetes"
           dotnet restore "Abstracciones/Abstracciones.csproj"
           dotnet restore "DA/DA.csproj"
           dotnet restore "Flujo/Flujo.csproj"
           dotnet restore "Reglas/Reglas.csproj"
           dotnet restore "Servicios/Servicios.csproj"
-          dotnet restore "API/API.csproj"
 
       - name: Build with dotnet (excluding BD project)
         run: |
