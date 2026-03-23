@@ -7,13 +7,33 @@ using Abstracciones.Interfaces.Reglas;
 using Reglas;
 using Abstracciones.Interfaces.Servicios;
 using Servicios;
+using Abstracciones.Modelos;                          // ★
+using Microsoft.AspNetCore.Authentication.JwtBearer;  // ★
+using Microsoft.IdentityModel.Tokens;                 // ★
+using System.Text;                                    // ★
+using Autorizacion.Middleware;                        // ★
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// ★ Leer configuración JWT y registrar autenticación
+var tokenConfig = builder.Configuration.GetSection("Token").Get<TokenConfiguracion>();
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = tokenConfig.Issuer,
+            ValidAudience = tokenConfig.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(
+                                           Encoding.UTF8.GetBytes(tokenConfig.key))
+        };
+    });
 
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHttpClient();
@@ -31,9 +51,15 @@ builder.Services.AddScoped<IRegistroReglas, RegistroReglas>();
 builder.Services.AddScoped<IRevisionReglas, RevisionReglas>();
 builder.Services.AddScoped<IConfiguracion, Configuracion>();
 
+// ★ Registrar servicios del paquete de Autorización
+builder.Services.AddTransient<Autorizacion.Abstracciones.Flujo.IAutorizacionFlujo,
+                               Autorizacion.Flujo.AutorizacionFlujo>();
+builder.Services.AddTransient<Autorizacion.Abstracciones.DA.ISeguridadDA,
+                               Autorizacion.DA.SeguridadDA>();
+builder.Services.AddTransient<Autorizacion.Abstracciones.DA.IRepositorioDapper,
+                               Autorizacion.DA.Repositorios.RepositorioDapper>();
+
 var politicaAcceso = "Politica de acceso";
-
-
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(name: politicaAcceso,
@@ -47,7 +73,6 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -57,8 +82,8 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseCors(politicaAcceso);
 
+app.AutorizacionClaims();  // ★ NUEVO — ANTES de UseAuthorization
 app.UseAuthorization();
 
 app.MapControllers();
-
 app.Run();
